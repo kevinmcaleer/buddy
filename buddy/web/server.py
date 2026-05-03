@@ -31,6 +31,8 @@ Endpoint summary
 ``POST /torque``          Body ``{"enabled": bool, "joint": "all"|name|index}``.
 ``POST /gripper``         Body ``{"action": "open"|"close"}``.
 ``POST /home``            No body. Drives the arm to its configured home pose.
+``POST /cli``             Body ``{"command": "..."}``; dispatches via the CLI
+                          parser and returns ``{"result": "..."}``.
 ``GET  /ws``              WebSocket stream — joint state JSON at ``stream_hz`` Hz
                           (default 20 Hz) for the 3D viewer.
 ========================  =========================================================
@@ -247,7 +249,8 @@ def _request_json(req):
     return body
 
 
-def create_app(arm, pose_to_joints=None, stream_hz=DEFAULT_STREAM_HZ):
+def create_app(arm, pose_to_joints=None, stream_hz=DEFAULT_STREAM_HZ,
+               cli_dispatch=None):
     """Build and return a configured :class:`microdot.Microdot` app.
 
     Parameters
@@ -260,6 +263,10 @@ def create_app(arm, pose_to_joints=None, stream_hz=DEFAULT_STREAM_HZ):
         requests.  Defaults to ``None`` (Cartesian moves return 501).
     stream_hz : int
         WebSocket ``/ws`` broadcast rate.
+    cli_dispatch : callable, optional
+        ``(command_str, arm, kinematics=...) -> str`` CLI dispatcher.
+        When provided, a ``POST /cli`` endpoint is registered.  Pass
+        :func:`buddy.cli.dispatch` here to enable the web console.
 
     Returns
     -------
@@ -352,6 +359,27 @@ def create_app(arm, pose_to_joints=None, stream_hz=DEFAULT_STREAM_HZ):
         if err is not None:
             return {"ok": False, "error": err}, 500
         return {"ok": True}
+
+    # ---- CLI console endpoint -----------------------------------------------
+
+    @app.post("/cli")
+    def post_cli(req):
+        if cli_dispatch is None:
+            return {"ok": False, "error": "CLI not configured"}, 501
+        try:
+            body = _request_json(req)
+        except ValueError as exc:
+            return {"ok": False, "error": str(exc)}, 400
+        command = body.get("command")
+        if not isinstance(command, str) or not command.strip():
+            return {"ok": False, "error": "'command' (non-empty string) required"}, 400
+        try:
+            result = cli_dispatch(command, service.arm, kinematics=service.pose_to_joints)
+        except Exception as exc:
+            return {"ok": False, "error": "{}: {}".format(type(exc).__name__, exc)}, 500
+        if result.startswith("Error:"):
+            return {"ok": False, "error": result}
+        return {"ok": True, "result": result}
 
     @app.route("/ws")
     @with_websocket
