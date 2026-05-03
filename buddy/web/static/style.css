@@ -1,0 +1,428 @@
+/* Buddy Arm Web Controller - Responsive Layout */
+
+:root {
+    --bg-primary: #1a1b2e;
+    --bg-secondary: #242640;
+    --bg-tertiary: #2d2f4e;
+    --accent: #6c63ff;
+    --accent-hover: #837dff;
+    --accent-dim: rgba(108, 99, 255, 0.15);
+    --text-primary: #e8e6f0;
+    --text-secondary: #9b97b0;
+    --text-muted: #6b6880;
+    --success: #4cd964;
+    --warning: #ffb84d;
+    --danger: #ff4d6a;
+    --border: #3a3c5e;
+    --radius: 10px;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Header */
+header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+header h1 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.85rem;
+}
+
+.ws-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ws-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--danger);
+    transition: background 0.3s;
+}
+
+.ws-dot.connected {
+    background: var(--success);
+}
+
+/* Main Layout */
+.app-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 16px;
+    padding: 16px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Panels */
+.panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.panel-body {
+    padding: 16px;
+}
+
+/* Viewer Panel */
+.viewer-panel {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    min-height: 500px;
+}
+
+.viewer-panel .panel-body {
+    padding: 0;
+    height: calc(100% - 44px);
+    position: relative;
+}
+
+#viewer-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Controls Panel */
+.controls-panel {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+/* Joint Sliders */
+.joint-slider-group {
+    margin-bottom: 14px;
+}
+
+.joint-slider-group:last-child {
+    margin-bottom: 0;
+}
+
+.slider-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+}
+
+.slider-label .joint-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    text-transform: capitalize;
+}
+
+.slider-label .joint-value {
+    font-family: "SF Mono", "Fira Code", monospace;
+    color: var(--accent);
+    font-size: 0.82rem;
+    min-width: 50px;
+    text-align: right;
+}
+
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-tertiary);
+    outline: none;
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg-primary);
+    box-shadow: 0 0 6px rgba(108, 99, 255, 0.4);
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg-primary);
+    box-shadow: 0 0 6px rgba(108, 99, 255, 0.4);
+    cursor: pointer;
+}
+
+/* Action Buttons */
+.action-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+}
+
+.btn:hover {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+}
+
+.btn:active {
+    transform: scale(0.97);
+}
+
+.btn.btn-accent {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.btn.btn-accent:hover {
+    background: var(--accent-hover);
+}
+
+.btn.btn-success {
+    border-color: var(--success);
+    color: var(--success);
+}
+
+.btn.btn-success.active {
+    background: var(--success);
+    color: #fff;
+}
+
+.btn.btn-danger {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.btn.btn-danger.active {
+    background: var(--danger);
+    color: #fff;
+}
+
+/* IK Panel */
+.ik-panel {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.ik-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.ik-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ik-field label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ik-field input {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-family: "SF Mono", "Fira Code", monospace;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.ik-field input:focus {
+    border-color: var(--accent);
+}
+
+/* Console Panel */
+.console-panel {
+    grid-column: 1 / 3;
+}
+
+.console-output {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    height: 120px;
+    overflow-y: auto;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+.console-output .log-entry {
+    margin-bottom: 2px;
+}
+
+.console-output .log-error {
+    color: var(--danger);
+}
+
+.console-output .log-success {
+    color: var(--success);
+}
+
+.console-output .log-info {
+    color: var(--accent);
+}
+
+.console-input-row {
+    display: flex;
+    gap: 8px;
+}
+
+.console-input-row input {
+    flex: 1;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text-primary);
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.console-input-row input:focus {
+    border-color: var(--accent);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .app-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+    }
+
+    .viewer-panel {
+        grid-column: 1;
+        grid-row: auto;
+        min-height: 350px;
+    }
+
+    .controls-panel {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .ik-panel {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .console-panel {
+        grid-column: 1;
+    }
+}
+
+@media (max-width: 480px) {
+    header {
+        padding: 10px 14px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    header h1 {
+        font-size: 1.1rem;
+    }
+
+    .app-layout {
+        padding: 10px;
+        gap: 10px;
+    }
+
+    .panel-body {
+        padding: 12px;
+    }
+
+    .ik-inputs {
+        grid-template-columns: 1fr;
+    }
+
+    .action-row {
+        flex-direction: column;
+    }
+
+    .btn {
+        min-width: unset;
+    }
+}

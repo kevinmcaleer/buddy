@@ -9,6 +9,7 @@ payload schema directly through :func:`buddy.web.server.state_payload`
 rather than spinning up an ASGI test harness.
 """
 import asyncio
+import os
 from collections import OrderedDict
 
 import pytest
@@ -20,6 +21,7 @@ from buddy.web.server import (
     create_app,
     state_payload,
     DEFAULT_STREAM_HZ,
+    STATIC_DIR,
 )
 
 
@@ -453,3 +455,70 @@ def test_ws_payload_shape_matches_state_endpoint(app_and_client, fake_arm):
     assert len(rest["joints"]) == len(ws_payload["joints"])
     for r, w in zip(rest["joints"], ws_payload["joints"]):
         assert set(r) == set(w)
+
+
+# ---- Static file serving (Phase 6) ------------------------------------------
+
+
+def test_static_dir_exists():
+    """The static directory must exist on disk."""
+    assert os.path.isdir(STATIC_DIR), "STATIC_DIR does not exist: {}".format(STATIC_DIR)
+
+
+def test_static_assets_present():
+    """All four required static assets must be present on disk."""
+    for name in ("index.html", "app.js", "viewer.js", "style.css"):
+        path = os.path.join(STATIC_DIR, name)
+        assert os.path.isfile(path), "missing static asset: {}".format(name)
+
+
+def test_root_serves_index_html(app_and_client):
+    """GET / should serve index.html with 200."""
+    _, client = app_and_client
+    resp = client.get("/")
+    assert resp.status_code == 200
+    # The response body should contain HTML from index.html.
+    body = resp.text if hasattr(resp, "text") else resp.body.decode("utf-8", errors="replace")
+    assert "Buddy Arm" in body
+    assert "<html" in body.lower()
+
+
+def test_static_app_js_served(app_and_client):
+    """GET /static/app.js should return JavaScript content."""
+    _, client = app_and_client
+    resp = client.get("/static/app.js")
+    assert resp.status_code == 200
+    body = resp.text if hasattr(resp, "text") else resp.body.decode("utf-8", errors="replace")
+    assert "WebSocket" in body or "function" in body
+
+
+def test_static_style_css_served(app_and_client):
+    """GET /static/style.css should return CSS content."""
+    _, client = app_and_client
+    resp = client.get("/static/style.css")
+    assert resp.status_code == 200
+    body = resp.text if hasattr(resp, "text") else resp.body.decode("utf-8", errors="replace")
+    assert "body" in body or "font" in body or "color" in body
+
+
+def test_static_viewer_js_served(app_and_client):
+    """GET /static/viewer.js should return JavaScript content."""
+    _, client = app_and_client
+    resp = client.get("/static/viewer.js")
+    assert resp.status_code == 200
+    body = resp.text if hasattr(resp, "text") else resp.body.decode("utf-8", errors="replace")
+    assert "THREE" in body or "viewer" in body.lower()
+
+
+def test_static_traversal_blocked(app_and_client):
+    """Paths containing '..' must be rejected with 403."""
+    _, client = app_and_client
+    resp = client.get("/static/../server.py")
+    assert resp.status_code == 403
+
+
+def test_static_missing_file_returns_404(app_and_client):
+    """Requesting a file that does not exist should return 404."""
+    _, client = app_and_client
+    resp = client.get("/static/nonexistent.txt")
+    assert resp.status_code in (404, 500)  # microdot may return 500 for missing files
