@@ -30,3 +30,5 @@ for each new feature - be sure to create new tests to ensure the code works as e
 code coverage should be 80% or higher.
 
 always update, and close github issues when the code is complete and tested.
+
+Please makesure the documentation is stored in the `docs/` folder and is in the sphinx format.
