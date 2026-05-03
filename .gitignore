@@ -5,3 +5,9 @@ __pycache__/
 .coverage
 htmlcov/
 .DS_Store
+
+# Wi-Fi and other secrets — NEVER commit real credentials.
+wifi_credentials.json
+*.secret
+*.secrets.json
+secrets.py

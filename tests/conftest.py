@@ -67,6 +67,50 @@ def _install_fake_machine():
     sys.modules["machine"] = mod
 
 
+# ---- fake `network` module --------------------------------------------------
+# `network` is MicroPython-only.  We register a default stub here so that
+# `import network` doesn't blow up when buddy.web.wifi is imported under
+# CPython.  Individual tests build per-test FakeWLAN instances and inject them
+# via the `network_module` argument to `wifi.connect(...)`, but this stub keeps
+# bare `import network` calls safe for any module-level imports added later.
+
+class _StubWLAN:
+    STA_IF = 0
+    AP_IF = 1
+
+    def __init__(self, *args, **kwargs):
+        self._connected = False
+        self._active = False
+
+    def active(self, value=None):
+        if value is None:
+            return self._active
+        self._active = bool(value)
+
+    def connect(self, ssid, password):  # pragma: no cover - replaced in tests
+        pass
+
+    def isconnected(self):  # pragma: no cover - replaced in tests
+        return False
+
+    def ifconfig(self):  # pragma: no cover - replaced in tests
+        return ("0.0.0.0", "0.0.0.0", "0.0.0.0", "0.0.0.0")
+
+    def config(self, **kwargs):  # pragma: no cover - replaced in tests
+        pass
+
+
+def _install_fake_network():
+    if "network" in sys.modules:
+        return
+    mod = types.ModuleType("network")
+    mod.STA_IF = 0
+    mod.AP_IF = 1
+    mod.WLAN = _StubWLAN
+    mod.hostname = lambda *a, **kw: None
+    sys.modules["network"] = mod
+
+
 def _install_time_shims():
     """The driver uses time.sleep_us / sleep_ms / ticks_ms / ticks_add / ticks_diff
     which are MicroPython extensions. Provide CPython-side stand-ins."""
@@ -83,6 +127,7 @@ def _install_time_shims():
 
 
 _install_fake_machine()
+_install_fake_network()
 _install_time_shims()
 
 # Make the package root importable so `import sts3215` works regardless of cwd.
