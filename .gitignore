@@ -11,3 +11,9 @@ wifi_credentials.json
 *.secret
 *.secrets.json
 secrets.py
+
+# Calibration data — user-specific, generated at runtime.
+calibration.json
+
+# Sphinx documentation build output.
+docs/_build/

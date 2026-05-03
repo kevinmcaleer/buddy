@@ -47,6 +47,7 @@ Buddy CLI commands:
   torque on|off [J<n>]          Enable/disable torque (all if no joint)
   grip open|close               Open or close the gripper
   read                          Print current joint angles and temperatures
+  calibrate                     Capture current pose as home and save to flash
   help                          Show this help message"""
 
 
@@ -194,6 +195,17 @@ def _cmd_read(_parts, arm, _kin):
     return "Joint states:\n" + "\n".join(lines)
 
 
+def _cmd_calibrate(_parts, arm, _kin):
+    """``calibrate``"""
+    try:
+        from buddy.calibration import calibrate
+        data = calibrate(arm)
+        joint_count = len(data.get("joints", {}))
+        return "OK: calibration saved ({} joints captured)".format(joint_count)
+    except Exception as exc:
+        return "Error: calibration failed: {}".format(exc)
+
+
 def _cmd_help(_parts, _arm, _kin):
     """``help``"""
     return _HELP_TEXT
@@ -210,6 +222,7 @@ _COMMANDS = {
     "torque": _cmd_torque,
     "grip": _cmd_grip,
     "read": _cmd_read,
+    "calibrate": _cmd_calibrate,
     "help": _cmd_help,
 }
 
