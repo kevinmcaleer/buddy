@@ -453,3 +453,92 @@ def test_ws_payload_shape_matches_state_endpoint(app_and_client, fake_arm):
     assert len(rest["joints"]) == len(ws_payload["joints"])
     for r, w in zip(rest["joints"], ws_payload["joints"]):
         assert set(r) == set(w)
+
+
+# ---- /cli endpoint -------------------------------------------------------
+
+def _fake_dispatch(command, arm, kinematics=None):
+    """Simple stand-in for buddy.cli.dispatch."""
+    if command.strip() == "home":
+        arm.home()
+        return "OK: moved to home position"
+    if command.strip().startswith("Error"):
+        return "Error: simulated error"
+    return "OK: dispatched"
+
+
+@pytest.fixture
+def cli_app_and_client(fake_arm):
+    app, _service = create_app(fake_arm, cli_dispatch=_fake_dispatch)
+    return app, SyncClient(app)
+
+
+def test_cli_endpoint_dispatches_command(cli_app_and_client, fake_arm):
+    _, client = cli_app_and_client
+    resp = client.post("/cli", body={"command": "home"})
+    assert resp.status_code == 200
+    body = _json(resp)
+    assert body["ok"] is True
+    assert "home" in body["result"]
+    assert any(c[0] == "home" for c in fake_arm.calls)
+
+
+def test_cli_endpoint_returns_ok_result(cli_app_and_client):
+    _, client = cli_app_and_client
+    resp = client.post("/cli", body={"command": "something"})
+    assert resp.status_code == 200
+    body = _json(resp)
+    assert body["ok"] is True
+    assert body["result"] == "OK: dispatched"
+
+
+def test_cli_endpoint_returns_error_on_error_result(cli_app_and_client):
+    _, client = cli_app_and_client
+    resp = client.post("/cli", body={"command": "Error please"})
+    body = _json(resp)
+    assert body["ok"] is False
+    assert "error" in body
+
+
+def test_cli_endpoint_missing_command(cli_app_and_client):
+    _, client = cli_app_and_client
+    resp = client.post("/cli", body={})
+    assert resp.status_code == 400
+    body = _json(resp)
+    assert body["ok"] is False
+    assert "command" in body["error"].lower()
+
+
+def test_cli_endpoint_empty_command(cli_app_and_client):
+    _, client = cli_app_and_client
+    resp = client.post("/cli", body={"command": "   "})
+    assert resp.status_code == 400
+
+
+def test_cli_endpoint_command_not_string(cli_app_and_client):
+    _, client = cli_app_and_client
+    resp = client.post("/cli", body={"command": 123})
+    assert resp.status_code == 400
+
+
+def test_cli_endpoint_not_configured(app_and_client):
+    """When cli_dispatch is None (not passed), /cli returns 501."""
+    _, client = app_and_client
+    resp = client.post("/cli", body={"command": "home"})
+    assert resp.status_code == 501
+    body = _json(resp)
+    assert body["ok"] is False
+    assert "not configured" in body["error"]
+
+
+def test_cli_endpoint_dispatch_exception(fake_arm):
+    """If the dispatch function itself raises, the endpoint returns 500."""
+    def boom(command, arm, kinematics=None):
+        raise RuntimeError("unexpected crash")
+
+    app, _ = create_app(fake_arm, cli_dispatch=boom)
+    client = SyncClient(app)
+    resp = client.post("/cli", body={"command": "home"})
+    assert resp.status_code == 500
+    body = _json(resp)
+    assert "unexpected crash" in body["error"]
