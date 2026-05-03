@@ -20,20 +20,22 @@ inside the budget on a Pico W / ESP32.
 
 Endpoint summary
 ----------------
-====================  ===========================================================
-``GET  /state``       JSON snapshot: per-joint angles, gripper, torque,
-                      temperature.
-``POST /move``        Body either ``{"angles": {...}|[...]}`` (joint-space) or
-                      ``{"pose": {...}}`` (Cartesian — delegated to a
-                      caller-supplied IK callable; Phase 4 plugs in here).
-``POST /torque``      Body ``{"enabled": bool, "joint": "all"|name|index}``.
-``POST /gripper``     Body ``{"action": "open"|"close"}``.
-``POST /home``        No body. Drives the arm to its configured home pose.
-``POST /cli``         Body ``{"command": "..."}``; dispatches via the CLI
-                      parser and returns ``{"result": "..."}``.
-``GET  /ws``          WebSocket stream — joint state JSON at ``stream_hz`` Hz
-                      (default 20 Hz) for the 3D viewer.
-====================  ===========================================================
+========================  =========================================================
+``GET  /``                Serves ``index.html`` — single-page web frontend.
+``GET  /static/<path>``   Serves static assets (JS, CSS) from ``buddy/web/static/``.
+``GET  /state``           JSON snapshot: per-joint angles, gripper, torque,
+                          temperature.
+``POST /move``            Body either ``{"angles": {...}|[...]}`` (joint-space) or
+                          ``{"pose": {...}}`` (Cartesian — delegated to a
+                          caller-supplied IK callable; Phase 4 plugs in here).
+``POST /torque``          Body ``{"enabled": bool, "joint": "all"|name|index}``.
+``POST /gripper``         Body ``{"action": "open"|"close"}``.
+``POST /home``            No body. Drives the arm to its configured home pose.
+``POST /cli``             Body ``{"command": "..."}``; dispatches via the CLI
+                          parser and returns ``{"result": "..."}``.
+``GET  /ws``              WebSocket stream — joint state JSON at ``stream_hz`` Hz
+                          (default 20 Hz) for the 3D viewer.
+========================  =========================================================
 
 Cartesian / IK integration point
 --------------------------------
@@ -45,7 +47,7 @@ here without any further changes to the server.
 """
 
 try:
-    from microdot import Microdot
+    from microdot import Microdot, send_file
     from microdot.websocket import with_websocket
 except ImportError:  # pragma: no cover - smoke import diagnostic
     raise ImportError(
@@ -64,10 +66,32 @@ try:
 except ImportError:        # pragma: no cover - CPython
     import time
 
+try:
+    import uos as os       # MicroPython
+except ImportError:        # pragma: no cover - CPython
+    import os
+
 
 # Default streaming rate for /ws.  20 Hz keeps the 3D viewer smooth without
 # saturating the half-duplex servo bus with read traffic.
 DEFAULT_STREAM_HZ = 20
+
+# Directory containing static web assets (index.html, JS, CSS).
+# Resolved relative to *this* file so it works on both CPython and
+# MicroPython regardless of the working directory.
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(_THIS_DIR, "static")
+
+# Allowed static file extensions and their MIME types.
+_MIME_TYPES = {
+    ".html": "text/html",
+    ".js":   "application/javascript",
+    ".css":  "text/css",
+    ".json": "application/json",
+    ".png":  "image/png",
+    ".svg":  "image/svg+xml",
+    ".ico":  "image/x-icon",
+}
 
 
 def _sleep_ms(ms):
@@ -365,6 +389,26 @@ def create_app(arm, pose_to_joints=None, stream_hz=DEFAULT_STREAM_HZ,
             payload = state_payload(service)
             ws.send(json.dumps(payload))
             _sleep_ms(period_ms)
+
+    # ---- Static file serving (Phase 6: web frontend) --------------------
+
+    @app.get("/")
+    def index(req):
+        return send_file(os.path.join(STATIC_DIR, "index.html"))
+
+    @app.get("/static/<path:path>")
+    def static_files(req, path):
+        # Prevent directory traversal by rejecting paths with "..".
+        if ".." in path:
+            return {"error": "forbidden"}, 403
+        filepath = os.path.join(STATIC_DIR, path)
+        # Determine content type from extension.
+        ext = ""
+        dot_pos = path.rfind(".")
+        if dot_pos >= 0:
+            ext = path[dot_pos:]
+        content_type = _MIME_TYPES.get(ext)
+        return send_file(filepath, content_type=content_type)
 
     return app, service
 
