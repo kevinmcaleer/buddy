@@ -76,6 +76,17 @@ except ImportError:        # pragma: no cover - CPython
 # saturating the half-duplex servo bus with read traffic.
 DEFAULT_STREAM_HZ = 20
 
+# ---- Security constants --------------------------------------------------------
+# Maximum allowed length for CLI commands.  Prevents memory exhaustion on
+# microcontrollers with limited RAM (e.g. RP2040's 264 KB).
+MAX_COMMAND_LEN = 256
+
+# Hard limits for speed / acceleration values accepted over the API.
+# STS3215 registers are 16-bit (speed) and 8-bit (accel) but we cap to the
+# meaningful protocol range to prevent nonsensical or dangerous servo behaviour.
+MAX_SPEED = 4095
+MAX_ACCEL = 255
+
 # Directory containing static web assets (index.html, JS, CSS).
 # Resolved relative to *this* file so it works on both CPython and
 # MicroPython regardless of the working directory.
@@ -249,6 +260,31 @@ def _request_json(req):
     return body
 
 
+def _validate_speed_accel(speed, accel):
+    """Validate and clamp speed/accel values from untrusted input.
+
+    Returns ``(speed, accel, error_string_or_None)``.  On validation failure
+    the first two values are ``None`` and the third carries the message.
+    """
+    if speed is not None:
+        if isinstance(speed, bool):
+            return None, None, "'speed' must be a number"
+        if not isinstance(speed, (int, float)):
+            return None, None, "'speed' must be a number"
+        speed = int(speed)
+        if speed < 0 or speed > MAX_SPEED:
+            return None, None, "'speed' must be 0..{}".format(MAX_SPEED)
+    if accel is not None:
+        if isinstance(accel, bool):
+            return None, None, "'accel' must be a number"
+        if not isinstance(accel, (int, float)):
+            return None, None, "'accel' must be a number"
+        accel = int(accel)
+        if accel < 0 or accel > MAX_ACCEL:
+            return None, None, "'accel' must be 0..{}".format(MAX_ACCEL)
+    return speed, accel, None
+
+
 def create_app(arm, pose_to_joints=None, stream_hz=DEFAULT_STREAM_HZ,
                cli_dispatch=None):
     """Build and return a configured :class:`microdot.Microdot` app.
@@ -292,8 +328,11 @@ def create_app(arm, pose_to_joints=None, stream_hz=DEFAULT_STREAM_HZ,
         except ValueError as exc:
             return {"ok": False, "error": str(exc)}, 400
 
-        speed = body.get("speed")
-        accel = body.get("accel")
+        speed, accel, err = _validate_speed_accel(
+            body.get("speed"), body.get("accel"),
+        )
+        if err is not None:
+            return {"ok": False, "error": err}, 400
 
         if "angles" in body:
             angles = body["angles"]
@@ -355,7 +394,12 @@ def create_app(arm, pose_to_joints=None, stream_hz=DEFAULT_STREAM_HZ,
             body = _request_json(req)
         except ValueError:
             body = {}
-        _, err = service.home(speed=body.get("speed"), accel=body.get("accel"))
+        speed, accel, val_err = _validate_speed_accel(
+            body.get("speed"), body.get("accel"),
+        )
+        if val_err is not None:
+            return {"ok": False, "error": val_err}, 400
+        _, err = service.home(speed=speed, accel=accel)
         if err is not None:
             return {"ok": False, "error": err}, 500
         return {"ok": True}
@@ -373,6 +417,8 @@ def create_app(arm, pose_to_joints=None, stream_hz=DEFAULT_STREAM_HZ,
         command = body.get("command")
         if not isinstance(command, str) or not command.strip():
             return {"ok": False, "error": "'command' (non-empty string) required"}, 400
+        if len(command) > MAX_COMMAND_LEN:
+            return {"ok": False, "error": "command too long (max {} chars)".format(MAX_COMMAND_LEN)}, 400
         try:
             result = cli_dispatch(command, service.arm, kinematics=service.pose_to_joints)
         except Exception as exc:
