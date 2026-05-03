@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy Arm Controller</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>Buddy Arm</h1>
+        <div class="status-bar">
+            <div class="ws-status">
+                <div class="ws-dot" id="ws-dot"></div>
+                <span id="ws-label">Disconnected</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="app-layout">
+        <!-- 3D Viewer -->
+        <div class="panel viewer-panel">
+            <div class="panel-header">3D Viewer</div>
+            <div class="panel-body">
+                <div id="viewer-canvas"></div>
+            </div>
+        </div>
+
+        <!-- Joint Controls -->
+        <div class="panel controls-panel">
+            <div class="panel-header">Joint Controls</div>
+            <div class="panel-body">
+                <div id="joint-sliders">
+                    <!-- Sliders are built dynamically by app.js -->
+                </div>
+                <div class="action-row">
+                    <button class="btn btn-success" id="btn-torque">Torque OFF</button>
+                    <button class="btn" id="btn-gripper-open">Gripper Open</button>
+                    <button class="btn" id="btn-gripper-close">Gripper Close</button>
+                    <button class="btn btn-accent" id="btn-home">Home</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- IK Panel -->
+        <div class="panel ik-panel">
+            <div class="panel-header">Inverse Kinematics</div>
+            <div class="panel-body">
+                <div class="ik-inputs">
+                    <div class="ik-field">
+                        <label for="ik-x">X (mm)</label>
+                        <input type="number" id="ik-x" value="200" step="1">
+                    </div>
+                    <div class="ik-field">
+                        <label for="ik-y">Y (mm)</label>
+                        <input type="number" id="ik-y" value="0" step="1">
+                    </div>
+                    <div class="ik-field">
+                        <label for="ik-z">Z (mm)</label>
+                        <input type="number" id="ik-z" value="200" step="1">
+                    </div>
+                    <div class="ik-field">
+                        <label for="ik-pitch">Tool Pitch</label>
+                        <input type="number" id="ik-pitch" value="0" step="1">
+                    </div>
+                    <div class="ik-field">
+                        <label for="ik-roll">Tool Roll</label>
+                        <input type="number" id="ik-roll" value="0" step="1">
+                    </div>
+                    <div class="ik-field" style="justify-content: flex-end;">
+                        <button class="btn btn-accent" id="btn-ik-move">Move</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Console -->
+        <div class="panel console-panel">
+            <div class="panel-header">Console</div>
+            <div class="panel-body">
+                <div class="console-output" id="console-output"></div>
+                <div class="console-input-row">
+                    <input type="text" id="console-input" placeholder="Enter command...">
+                    <button class="btn" id="btn-console-send">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts: app.js is a classic script, viewer.js is an ES module -->
+    <script src="/static/app.js"></script>
+    <script type="module" src="/static/viewer.js"></script>
+</body>
+</html>
