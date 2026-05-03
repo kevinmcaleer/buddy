@@ -20,6 +20,10 @@ from buddy.web.server import (
     create_app,
     state_payload,
     DEFAULT_STREAM_HZ,
+    MAX_COMMAND_LEN,
+    MAX_SPEED,
+    MAX_ACCEL,
+    _validate_speed_accel,
 )
 
 
@@ -542,3 +546,109 @@ def test_cli_endpoint_dispatch_exception(fake_arm):
     assert resp.status_code == 500
     body = _json(resp)
     assert "unexpected crash" in body["error"]
+
+
+# ---- Security: speed / accel validation -----------------------------------
+
+
+def test_validate_speed_accel_none_passthrough():
+    s, a, err = _validate_speed_accel(None, None)
+    assert s is None and a is None and err is None
+
+
+def test_validate_speed_accel_valid_values():
+    s, a, err = _validate_speed_accel(500, 50)
+    assert s == 500 and a == 50 and err is None
+
+
+def test_validate_speed_accel_float_truncated():
+    s, a, err = _validate_speed_accel(100.7, 10.9)
+    assert s == 100 and a == 10 and err is None
+
+
+def test_validate_speed_accel_rejects_negative_speed():
+    _, _, err = _validate_speed_accel(-1, 0)
+    assert err is not None and "speed" in err
+
+
+def test_validate_speed_accel_rejects_over_max_speed():
+    _, _, err = _validate_speed_accel(MAX_SPEED + 1, 0)
+    assert err is not None and "speed" in err
+
+
+def test_validate_speed_accel_rejects_negative_accel():
+    _, _, err = _validate_speed_accel(0, -1)
+    assert err is not None and "accel" in err
+
+
+def test_validate_speed_accel_rejects_over_max_accel():
+    _, _, err = _validate_speed_accel(0, MAX_ACCEL + 1)
+    assert err is not None and "accel" in err
+
+
+def test_validate_speed_accel_rejects_bool():
+    _, _, err = _validate_speed_accel(True, 0)
+    assert err is not None
+    _, _, err2 = _validate_speed_accel(0, False)
+    assert err2 is not None
+
+
+def test_validate_speed_accel_rejects_string():
+    _, _, err = _validate_speed_accel("fast", 0)
+    assert err is not None
+
+
+def test_validate_speed_boundary_values():
+    s, a, err = _validate_speed_accel(0, 0)
+    assert s == 0 and a == 0 and err is None
+    s, a, err = _validate_speed_accel(MAX_SPEED, MAX_ACCEL)
+    assert s == MAX_SPEED and a == MAX_ACCEL and err is None
+
+
+def test_move_rejects_bad_speed(app_and_client):
+    _, client = app_and_client
+    resp = client.post("/move", body={"angles": [0, 0, 0], "speed": -10})
+    assert resp.status_code == 400
+    assert "speed" in _json(resp)["error"]
+
+
+def test_move_rejects_bad_accel(app_and_client):
+    _, client = app_and_client
+    resp = client.post("/move", body={"angles": [0, 0, 0], "accel": 999})
+    assert resp.status_code == 400
+    assert "accel" in _json(resp)["error"]
+
+
+def test_home_rejects_bad_speed(app_and_client):
+    _, client = app_and_client
+    resp = client.post("/home", body={"speed": 99999})
+    assert resp.status_code == 400
+    assert "speed" in _json(resp)["error"]
+
+
+def test_home_rejects_bad_accel(app_and_client):
+    _, client = app_and_client
+    resp = client.post("/home", body={"accel": -1})
+    assert resp.status_code == 400
+    assert "accel" in _json(resp)["error"]
+
+
+# ---- Security: CLI command length limit -----------------------------------
+
+
+def test_cli_rejects_overlong_command(cli_app_and_client):
+    _, client = cli_app_and_client
+    long_cmd = "x" * (MAX_COMMAND_LEN + 1)
+    resp = client.post("/cli", body={"command": long_cmd})
+    assert resp.status_code == 400
+    body = _json(resp)
+    assert body["ok"] is False
+    assert "too long" in body["error"]
+
+
+def test_cli_accepts_max_length_command(cli_app_and_client):
+    _, client = cli_app_and_client
+    cmd = "a" * MAX_COMMAND_LEN
+    resp = client.post("/cli", body={"command": cmd})
+    # Should not be rejected for length (may return OK or unknown-command)
+    assert resp.status_code != 400 or "too long" not in _json(resp).get("error", "")
