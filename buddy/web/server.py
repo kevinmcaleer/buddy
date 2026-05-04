@@ -429,12 +429,16 @@ def create_app(arm, pose_to_joints=None, stream_hz=DEFAULT_STREAM_HZ,
 
     @app.route("/ws")
     @with_websocket
-    def ws_state(req, ws):  # pragma: no cover - exercised via WS test below
+    async def ws_state(req, ws):  # pragma: no cover - exercised via WS test below
         period_ms = max(1, int(1000 / app.stream_hz))
+        try:
+            import asyncio
+        except ImportError:
+            import uasyncio as asyncio
         while True:
             payload = state_payload(service)
-            ws.send(json.dumps(payload))
-            _sleep_ms(period_ms)
+            await ws.send(json.dumps(payload))
+            await asyncio.sleep(period_ms / 1000.0)
 
     # ---- Static file serving (Phase 6: web frontend) --------------------
 

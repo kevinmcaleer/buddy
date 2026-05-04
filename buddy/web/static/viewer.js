@@ -169,12 +169,25 @@ class BuddyViewer {
         this.container = document.getElementById(containerId);
         if (!this.container) return;
 
-        this._initScene();
-        this._initArm();
         this._animate = this._animate.bind(this);
         this._onResize = this._onResize.bind(this);
-        window.addEventListener("resize", this._onResize);
-        this._animate();
+
+        // Defer init until the container has layout dimensions — CSS may
+        // not have resolved heights yet on first paint.
+        this._waitForSize();
+    }
+
+    _waitForSize() {
+        var w = this.container.clientWidth;
+        var h = this.container.clientHeight;
+        if (w > 0 && h > 0) {
+            this._initScene();
+            this._initArm();
+            window.addEventListener("resize", this._onResize);
+            this._animate();
+        } else {
+            requestAnimationFrame(() => this._waitForSize());
+        }
     }
 
     _initScene() {
